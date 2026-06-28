@@ -476,6 +476,19 @@ button:focus-visible, input:focus-visible, textarea:focus-visible{
 .person-chip-pick .person-dot{ width:7px; height:7px; border-radius:50%; background: var(--person-color, var(--parchment-faint)); flex-shrink:0; }
 .person-chip-pick.active{ background: var(--person-color, var(--gold)); color: var(--moss-950); border-color: var(--person-color, var(--gold)); font-weight:600; }
 .person-chip-pick.active .person-dot{ background: var(--moss-950); }
+.person-order{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:16px; height:16px;
+  border-radius:50%;
+  background: var(--moss-950);
+  color: var(--parchment);
+  font-family: var(--font-mono);
+  font-size:10px;
+  margin-left:2px;
+}
+.assignee-hint{ font-size:12px; color: var(--parchment-faint); margin: 8px 2px 0; line-height:1.5; }
 
 .sheet-actions{ display:flex; gap:10px; margin-top:24px; }
 .sheet-actions-col{ flex-direction:column; }

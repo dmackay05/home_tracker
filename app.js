@@ -34,7 +34,7 @@ const DEFAULT_PEOPLE = [
 ];
 
 let state = {
-  chores: [],      // {id, name, area, intervalDays, notes, history:[isoDateStrings], createdAt, assigneeId}
+  chores: [],      // {id, name, area, intervalDays, notes, history:[isoDateStrings], createdAt, assigneeIds:[], turnIndex}
   cartItems: [],    // {id, name, qty, category, checked, createdAt}
   categories: DEFAULT_CATEGORIES.slice(),
   people: DEFAULT_PEOPLE.slice()
@@ -64,8 +64,21 @@ function loadState(){
       state = Object.assign(state, parsed);
       if(!state.categories || !state.categories.length) state.categories = DEFAULT_CATEGORIES.slice();
       if(!state.people || !state.people.length) state.people = DEFAULT_PEOPLE.slice();
+      migrateChoreAssignees();
     }
   }catch(e){ console.error('Failed to load state', e); }
+}
+
+// Migrate old single `assigneeId` field to the new `assigneeIds` array + `turnIndex`.
+function migrateChoreAssignees(){
+  state.chores.forEach(chore=>{
+    if(!Array.isArray(chore.assigneeIds)){
+      chore.assigneeIds = chore.assigneeId ? [chore.assigneeId] : [];
+      delete chore.assigneeId;
+    }
+    if(typeof chore.turnIndex !== 'number') chore.turnIndex = 0;
+    if(chore.assigneeIds.length && chore.turnIndex >= chore.assigneeIds.length) chore.turnIndex = 0;
+  });
 }
 
 function saveState(){
@@ -179,7 +192,7 @@ function renderChores(){
   }
 
   if(activePersonFilter){
-    chores = chores.filter(c => c.assigneeId === activePersonFilter);
+    chores = chores.filter(c => Array.isArray(c.assigneeIds) && c.assigneeIds.includes(activePersonFilter));
   }
 
   // sort: overdue first, then due, then upcoming by soonest
@@ -200,7 +213,7 @@ function renderChores(){
 
     const dotsHtml = renderStreakDots(streak);
     const doneToday = isDoneToday(chore);
-    const badgeHtml = personBadgeHtml(chore.assigneeId);
+    const badgeHtml = assigneeBadgeHtml(chore);
 
     li.innerHTML = `
       <div class="chore-top">
@@ -290,6 +303,29 @@ function personBadgeHtml(assigneeId){
   return `<span class="person-badge" style="--person-color:${person.color}">${escapeHtml(person.name)}</span>`;
 }
 
+// Multi-assignee helpers
+function currentTurnPersonId(chore){
+  if(!chore.assigneeIds || !chore.assigneeIds.length) return null;
+  return chore.assigneeIds[chore.turnIndex % chore.assigneeIds.length];
+}
+function advanceTurn(chore){
+  if(!chore.assigneeIds || chore.assigneeIds.length < 2) return;
+  chore.turnIndex = (chore.turnIndex + 1) % chore.assigneeIds.length;
+}
+function rewindTurn(chore){
+  if(!chore.assigneeIds || chore.assigneeIds.length < 2) return;
+  chore.turnIndex = (chore.turnIndex - 1 + chore.assigneeIds.length) % chore.assigneeIds.length;
+}
+function assigneeBadgeHtml(chore){
+  if(!chore.assigneeIds || !chore.assigneeIds.length) return '';
+  if(chore.assigneeIds.length === 1){
+    return personBadgeHtml(chore.assigneeIds[0]);
+  }
+  const turnPerson = getPerson(currentTurnPersonId(chore));
+  if(!turnPerson) return '';
+  return `<span class="person-badge" style="--person-color:${turnPerson.color}">${escapeHtml(turnPerson.name)}'s turn</span>`;
+}
+
 /* ============================================================
    Chore actions
    ============================================================ */
@@ -300,18 +336,21 @@ function toggleDoneToday(id){
   const idx = chore.history.indexOf(today);
   if(idx >= 0){
     chore.history.splice(idx, 1);
+    rewindTurn(chore);
     showToast(`Unmarked "${chore.name}"`);
   } else {
     chore.history.push(today);
     chore.history.sort();
-    showToast(`"${chore.name}" marked done`);
+    advanceTurn(chore);
+    const turnPerson = getPerson(currentTurnPersonId(chore));
+    showToast(turnPerson ? `Done — ${turnPerson.name}'s turn next` : `"${chore.name}" marked done`);
   }
   saveState();
   renderChores();
   if(detailChoreId === id) renderChoreDetail(id);
 }
 
-let selectedAssigneeId = null;
+let selectedAssigneeIds = [];
 
 function openChoreSheet(choreId){
   editingChoreId = choreId || null;
@@ -336,14 +375,14 @@ function openChoreSheet(choreId){
       $('#f_choreInterval').value = days;
       setSegActive('#f_choreUnit', 'days');
     }
-    selectedAssigneeId = chore.assigneeId || null;
+    selectedAssigneeIds = Array.isArray(chore.assigneeIds) ? chore.assigneeIds.slice() : [];
   } else {
     $('#f_choreName').value = '';
     $('#f_choreNotes').value = '';
     $('#f_choreInterval').value = 7;
     setSegActive('#f_choreArea', 'yard');
     setSegActive('#f_choreUnit', 'days');
-    selectedAssigneeId = null;
+    selectedAssigneeIds = [];
   }
 
   renderAssigneePicker();
@@ -356,19 +395,32 @@ function renderAssigneePicker(){
   grid.innerHTML = '';
 
   const noneChip = document.createElement('button');
-  noneChip.className = `person-chip-pick ${!selectedAssigneeId ? 'active' : ''}`;
+  noneChip.className = `person-chip-pick ${!selectedAssigneeIds.length ? 'active' : ''}`;
   noneChip.textContent = 'Unassigned';
-  noneChip.addEventListener('click', ()=>{ selectedAssigneeId = null; renderAssigneePicker(); });
+  noneChip.addEventListener('click', ()=>{ selectedAssigneeIds = []; renderAssigneePicker(); });
   grid.appendChild(noneChip);
 
   state.people.forEach(person=>{
+    const selectedIdx = selectedAssigneeIds.indexOf(person.id);
+    const isSelected = selectedIdx >= 0;
     const chip = document.createElement('button');
-    chip.className = `person-chip-pick ${selectedAssigneeId === person.id ? 'active' : ''}`;
+    chip.className = `person-chip-pick ${isSelected ? 'active' : ''}`;
     chip.style.setProperty('--person-color', person.color);
-    chip.innerHTML = `<span class="person-dot"></span>${escapeHtml(person.name)}`;
-    chip.addEventListener('click', ()=>{ selectedAssigneeId = person.id; renderAssigneePicker(); });
+    const orderTag = (isSelected && selectedAssigneeIds.length > 1) ? `<span class="person-order">${selectedIdx + 1}</span>` : '';
+    chip.innerHTML = `<span class="person-dot"></span>${escapeHtml(person.name)}${orderTag}`;
+    chip.addEventListener('click', ()=>{
+      if(isSelected){
+        selectedAssigneeIds.splice(selectedIdx, 1);
+      } else {
+        selectedAssigneeIds.push(person.id);
+      }
+      renderAssigneePicker();
+    });
     grid.appendChild(chip);
   });
+
+  const hint = $('#assigneeHint');
+  if(hint) hint.hidden = selectedAssigneeIds.length < 2;
 }
 
 function setSegActive(containerSel, val){
@@ -397,7 +449,8 @@ function saveChoreFromSheet(){
     chore.area = area;
     chore.intervalDays = intervalDays;
     chore.notes = notes;
-    chore.assigneeId = selectedAssigneeId;
+    chore.assigneeIds = selectedAssigneeIds.slice();
+    if(chore.turnIndex >= chore.assigneeIds.length) chore.turnIndex = 0;
     showToast('Chore updated');
   } else {
     state.chores.push({
@@ -405,7 +458,8 @@ function saveChoreFromSheet(){
       name, area, intervalDays, notes,
       history: [],
       createdAt: todayISO(),
-      assigneeId: selectedAssigneeId
+      assigneeIds: selectedAssigneeIds.slice(),
+      turnIndex: 0
     });
     showToast('Chore added');
   }
@@ -438,8 +492,14 @@ function renderChoreDetail(id){
   if(!chore) return;
 
   $('#detailChoreName').textContent = chore.name;
-  const person = getPerson(chore.assigneeId);
-  const assigneeText = person ? ` · ${person.name}` : '';
+  const assigneeNames = (chore.assigneeIds || []).map(id => { const p = getPerson(id); return p ? p.name : null; }).filter(Boolean);
+  let assigneeText = '';
+  if(assigneeNames.length === 1){
+    assigneeText = ` · ${assigneeNames[0]}`;
+  } else if(assigneeNames.length > 1){
+    const turnPerson = getPerson(currentTurnPersonId(chore));
+    assigneeText = ` · ${assigneeNames.join(', ')} (${turnPerson ? turnPerson.name : assigneeNames[0]}'s turn)`;
+  }
   $('#detailChoreMeta').textContent = `${chore.area} · every ${formatInterval(chore.intervalDays)} · ${formatDueLabel(chore)}${assigneeText}`;
 
   const streak = currentStreak(chore);
@@ -1075,8 +1135,15 @@ function addPerson(){
 
 function deletePerson(id){
   state.people = state.people.filter(p => p.id !== id);
-  // unassign any chores that pointed at this person
-  state.chores.forEach(c=>{ if(c.assigneeId === id) c.assigneeId = null; });
+  // remove this person from any chore's assignee list, and fix up turnIndex bounds
+  state.chores.forEach(c=>{
+    if(!Array.isArray(c.assigneeIds)) return;
+    const idx = c.assigneeIds.indexOf(id);
+    if(idx >= 0){
+      c.assigneeIds.splice(idx, 1);
+      if(c.turnIndex >= c.assigneeIds.length) c.turnIndex = 0;
+    }
+  });
   saveState();
   renderPeopleList();
   renderChores();
@@ -1118,7 +1185,8 @@ function loadStarterChores(){
       notes: '',
       history: [],
       createdAt: todayISO(),
-      assigneeId: null
+      assigneeIds: [],
+      turnIndex: 0
     });
     added++;
   });

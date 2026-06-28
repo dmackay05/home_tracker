@@ -99,15 +99,18 @@ function rebuildReadableTabs(data){
   let choreSheet = ss.getSheetByName('Chores');
   if(!choreSheet) choreSheet = ss.insertSheet('Chores');
   choreSheet.clear();
-  choreSheet.getRange(1,1,1,7).setValues([['Name','Area','Repeats (days)','Assigned To','Notes','Last Done','Current Streak']]);
+  choreSheet.getRange(1,1,1,8).setValues([['Name','Area','Repeats (days)','Assigned To','Whose Turn','Notes','Last Done','Current Streak']]);
   const choreRows = (data.chores || []).map(c=>{
     const hist = c.history || [];
     const last = hist.length ? hist[hist.length-1] : '';
-    const assignee = c.assigneeId ? (peopleById[c.assigneeId] || '') : '';
-    return [c.name, c.area, c.intervalDays, assignee, c.notes || '', last, computeStreak(c)];
+    const ids = c.assigneeIds || [];
+    const names = ids.map(id => peopleById[id] || '').filter(Boolean);
+    const turnIdx = (typeof c.turnIndex === 'number') ? c.turnIndex : 0;
+    const whoseTurn = (ids.length > 1) ? (peopleById[ids[turnIdx % ids.length]] || '') : '';
+    return [c.name, c.area, c.intervalDays, names.join(', '), whoseTurn, c.notes || '', last, computeStreak(c)];
   });
-  if(choreRows.length) choreSheet.getRange(2,1,choreRows.length,7).setValues(choreRows);
-  choreSheet.getRange(1,1,1,7).setFontWeight('bold');
+  if(choreRows.length) choreSheet.getRange(2,1,choreRows.length,8).setValues(choreRows);
+  choreSheet.getRange(1,1,1,8).setFontWeight('bold');
 
   // Cart tab
   let cartSheet = ss.getSheetByName('Cart');
