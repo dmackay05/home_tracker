@@ -22,14 +22,27 @@ const CATEGORY_COLORS = {
 };
 function categoryColor(cat){ return CATEGORY_COLORS[cat] || 'var(--cat-other)'; }
 
+// Person colors — distinct hues against the dark base, reused for chore badges/chips
+const PERSON_COLORS = ['#4A86E8','#D77A42','#43D692','#A479E2','#FAD165','#FB4C2F','#7EC8E3','#E07798'];
+
+const DEFAULT_PEOPLE = [
+  { id: 'p_david',   name: 'David',   color: PERSON_COLORS[0] },
+  { id: 'p_adriana', name: 'Adriana', color: PERSON_COLORS[1] },
+  { id: 'p_alexis',  name: 'Alexis',  color: PERSON_COLORS[2] },
+  { id: 'p_leila',   name: 'Leila',   color: PERSON_COLORS[3] },
+  { id: 'p_natalie', name: 'Natalie', color: PERSON_COLORS[4] }
+];
+
 let state = {
-  chores: [],      // {id, name, area, intervalDays, notes, history:[isoDateStrings], createdAt}
+  chores: [],      // {id, name, area, intervalDays, notes, history:[isoDateStrings], createdAt, assigneeId}
   cartItems: [],    // {id, name, qty, category, checked, createdAt}
-  categories: DEFAULT_CATEGORIES.slice()
+  categories: DEFAULT_CATEGORIES.slice(),
+  people: DEFAULT_PEOPLE.slice()
 };
 
 let activeTab = 'yard';
 let activeFilter = 'all';
+let activePersonFilter = null; // null = everyone
 let editingChoreId = null;
 let detailChoreId = null;
 
@@ -50,6 +63,7 @@ function loadState(){
       const parsed = JSON.parse(raw);
       state = Object.assign(state, parsed);
       if(!state.categories || !state.categories.length) state.categories = DEFAULT_CATEGORIES.slice();
+      if(!state.people || !state.people.length) state.people = DEFAULT_PEOPLE.slice();
     }
   }catch(e){ console.error('Failed to load state', e); }
 }
@@ -164,6 +178,10 @@ function renderChores(){
     chores = chores.filter(c => choreStatus(c) === 'upcoming');
   }
 
+  if(activePersonFilter){
+    chores = chores.filter(c => c.assigneeId === activePersonFilter);
+  }
+
   // sort: overdue first, then due, then upcoming by soonest
   chores.sort((a,b)=>{
     const order = {overdue:0, due:1, upcoming:2};
@@ -182,12 +200,13 @@ function renderChores(){
 
     const dotsHtml = renderStreakDots(streak);
     const doneToday = isDoneToday(chore);
+    const badgeHtml = personBadgeHtml(chore.assigneeId);
 
     li.innerHTML = `
       <div class="chore-top">
         <div>
           <div class="chore-name">${escapeHtml(chore.name)}</div>
-          <div class="chore-area-tag">${chore.area}</div>
+          <div class="chore-area-tag">${chore.area}${badgeHtml ? ' · ' : ''}${badgeHtml}</div>
         </div>
         <div class="chore-due-badge ${status}">${formatDueLabel(chore)}</div>
       </div>
@@ -213,6 +232,7 @@ function renderChores(){
   });
 
   updateYardDueCount();
+  renderPersonFilterChips();
 }
 
 function renderStreakDots(streak){
@@ -236,10 +256,38 @@ function updateYardDueCount(){
   $('#yardDueCount').textContent = dueCount > 0 ? `${dueCount} due` : '';
 }
 
+function renderPersonFilterChips(){
+  const row = $('#personFilters');
+  if(!row) return;
+  row.innerHTML = '';
+
+  const allChip = document.createElement('button');
+  allChip.className = `chip ${!activePersonFilter ? 'active' : ''}`;
+  allChip.textContent = 'Everyone';
+  allChip.addEventListener('click', ()=>{ activePersonFilter = null; renderChores(); });
+  row.appendChild(allChip);
+
+  state.people.forEach(person=>{
+    const chip = document.createElement('button');
+    chip.className = `chip person-chip ${activePersonFilter === person.id ? 'active' : ''}`;
+    chip.style.setProperty('--person-color', person.color);
+    chip.innerHTML = `<span class="person-dot"></span>${escapeHtml(person.name)}`;
+    chip.addEventListener('click', ()=>{ activePersonFilter = person.id; renderChores(); });
+    row.appendChild(chip);
+  });
+}
+
 function escapeHtml(str){
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
+}
+
+function getPerson(id){ return state.people.find(p => p.id === id) || null; }
+function personBadgeHtml(assigneeId){
+  const person = getPerson(assigneeId);
+  if(!person) return '';
+  return `<span class="person-badge" style="--person-color:${person.color}">${escapeHtml(person.name)}</span>`;
 }
 
 /* ============================================================
@@ -262,6 +310,8 @@ function toggleDoneToday(id){
   renderChores();
   if(detailChoreId === id) renderChoreDetail(id);
 }
+
+let selectedAssigneeId = null;
 
 function openChoreSheet(choreId){
   editingChoreId = choreId || null;
@@ -286,16 +336,39 @@ function openChoreSheet(choreId){
       $('#f_choreInterval').value = days;
       setSegActive('#f_choreUnit', 'days');
     }
+    selectedAssigneeId = chore.assigneeId || null;
   } else {
     $('#f_choreName').value = '';
     $('#f_choreNotes').value = '';
     $('#f_choreInterval').value = 7;
     setSegActive('#f_choreArea', 'yard');
     setSegActive('#f_choreUnit', 'days');
+    selectedAssigneeId = null;
   }
 
+  renderAssigneePicker();
   openSheet(overlay);
   setTimeout(()=> $('#f_choreName').focus(), 250);
+}
+
+function renderAssigneePicker(){
+  const grid = $('#f_choreAssignee');
+  grid.innerHTML = '';
+
+  const noneChip = document.createElement('button');
+  noneChip.className = `person-chip-pick ${!selectedAssigneeId ? 'active' : ''}`;
+  noneChip.textContent = 'Unassigned';
+  noneChip.addEventListener('click', ()=>{ selectedAssigneeId = null; renderAssigneePicker(); });
+  grid.appendChild(noneChip);
+
+  state.people.forEach(person=>{
+    const chip = document.createElement('button');
+    chip.className = `person-chip-pick ${selectedAssigneeId === person.id ? 'active' : ''}`;
+    chip.style.setProperty('--person-color', person.color);
+    chip.innerHTML = `<span class="person-dot"></span>${escapeHtml(person.name)}`;
+    chip.addEventListener('click', ()=>{ selectedAssigneeId = person.id; renderAssigneePicker(); });
+    grid.appendChild(chip);
+  });
 }
 
 function setSegActive(containerSel, val){
@@ -324,13 +397,15 @@ function saveChoreFromSheet(){
     chore.area = area;
     chore.intervalDays = intervalDays;
     chore.notes = notes;
+    chore.assigneeId = selectedAssigneeId;
     showToast('Chore updated');
   } else {
     state.chores.push({
       id: uid(),
       name, area, intervalDays, notes,
       history: [],
-      createdAt: todayISO()
+      createdAt: todayISO(),
+      assigneeId: selectedAssigneeId
     });
     showToast('Chore added');
   }
@@ -363,7 +438,9 @@ function renderChoreDetail(id){
   if(!chore) return;
 
   $('#detailChoreName').textContent = chore.name;
-  $('#detailChoreMeta').textContent = `${chore.area} · every ${formatInterval(chore.intervalDays)} · ${formatDueLabel(chore)}`;
+  const person = getPerson(chore.assigneeId);
+  const assigneeText = person ? ` · ${person.name}` : '';
+  $('#detailChoreMeta').textContent = `${chore.area} · every ${formatInterval(chore.intervalDays)} · ${formatDueLabel(chore)}${assigneeText}`;
 
   const streak = currentStreak(chore);
   $('#detailStreakRow').innerHTML = renderStreakDots(streak);
@@ -876,7 +953,7 @@ function pushToSheet(){
   const url = getScriptUrl();
   if(!url){ showToast('Add your Apps Script URL first'); return; }
 
-  const payload = JSON.stringify({ action:'save', chores: state.chores, cartItems: state.cartItems, categories: state.categories });
+  const payload = JSON.stringify({ action:'save', chores: state.chores, cartItems: state.cartItems, categories: state.categories, people: state.people });
 
   const iframe = document.createElement('iframe');
   iframe.name = 'ledger-sync-frame';
@@ -917,6 +994,7 @@ function pullFromSheet(silent){
         state.chores = data.chores || [];
         state.cartItems = data.cartItems || [];
         if(Array.isArray(data.categories) && data.categories.length) state.categories = data.categories;
+        if(Array.isArray(data.people) && data.people.length) state.people = data.people;
         saveState();
         renderChores();
         renderCart();
@@ -948,7 +1026,106 @@ function openSettingsSheet(){
   $('#f_scriptUrl').value = getScriptUrl();
   $('#f_usdaKey').value = getUsdaKey();
   updateSyncStatusText();
+  renderPeopleList();
   openSheet($('#settingsOverlay'));
+}
+
+/* ============================================================
+   People manager (Settings sheet)
+   ============================================================ */
+function renderPeopleList(){
+  const list = $('#peopleList');
+  list.innerHTML = '';
+
+  if(!state.people.length){
+    const empty = document.createElement('p');
+    empty.className = 'sync-status';
+    empty.textContent = 'No one added yet.';
+    list.appendChild(empty);
+    return;
+  }
+
+  state.people.forEach(person=>{
+    const row = document.createElement('div');
+    row.className = 'person-row';
+    row.innerHTML = `
+      <span class="person-dot" style="--person-color:${person.color}"></span>
+      <span class="person-row-name">${escapeHtml(person.name)}</span>
+      <button class="person-row-del" data-id="${person.id}" aria-label="Remove">✕</button>
+    `;
+    row.querySelector('.person-row-del').addEventListener('click', ()=> deletePerson(person.id));
+    list.appendChild(row);
+  });
+}
+
+function addPerson(){
+  const input = $('#f_newPersonName');
+  const name = input.value.trim();
+  if(!name){ showToast('Enter a name'); return; }
+
+  const usedColors = state.people.map(p => p.color);
+  const nextColor = PERSON_COLORS.find(c => !usedColors.includes(c)) || PERSON_COLORS[state.people.length % PERSON_COLORS.length];
+
+  state.people.push({ id: 'p_' + uid(), name, color: nextColor });
+  saveState();
+  input.value = '';
+  renderPeopleList();
+  showToast(`Added ${name}`);
+}
+
+function deletePerson(id){
+  state.people = state.people.filter(p => p.id !== id);
+  // unassign any chores that pointed at this person
+  state.chores.forEach(c=>{ if(c.assigneeId === id) c.assigneeId = null; });
+  saveState();
+  renderPeopleList();
+  renderChores();
+  showToast('Person removed');
+}
+
+/* ============================================================
+   Starter chores pack
+   ============================================================ */
+const STARTER_CHORES = [
+  { name: 'Mow the lawn', area: 'yard', intervalDays: 7 },
+  { name: 'Water plants/garden', area: 'yard', intervalDays: 3 },
+  { name: 'Pull weeds', area: 'yard', intervalDays: 14 },
+  { name: 'Trim hedges/bushes', area: 'yard', intervalDays: 30 },
+  { name: 'Rake leaves', area: 'yard', intervalDays: 14 },
+  { name: 'Take out trash', area: 'house', intervalDays: 7 },
+  { name: 'Take out recycling', area: 'house', intervalDays: 14 },
+  { name: 'Vacuum house', area: 'house', intervalDays: 7 },
+  { name: 'Clean bathrooms', area: 'house', intervalDays: 7 },
+  { name: 'Change HVAC filter', area: 'house', intervalDays: 90 },
+  { name: 'Clean gutters', area: 'house', intervalDays: 180 },
+  { name: 'Wipe down kitchen counters/appliances', area: 'house', intervalDays: 7 },
+  { name: 'Wash bedsheets', area: 'house', intervalDays: 14 },
+  { name: 'Dust furniture', area: 'house', intervalDays: 14 },
+  { name: 'Check smoke detector batteries', area: 'house', intervalDays: 180 }
+];
+
+function loadStarterChores(){
+  const existingNames = new Set(state.chores.map(c => c.name.toLowerCase().trim()));
+  let added = 0;
+
+  STARTER_CHORES.forEach(starter=>{
+    if(existingNames.has(starter.name.toLowerCase().trim())) return;
+    state.chores.push({
+      id: uid(),
+      name: starter.name,
+      area: starter.area,
+      intervalDays: starter.intervalDays,
+      notes: '',
+      history: [],
+      createdAt: todayISO(),
+      assigneeId: null
+    });
+    added++;
+  });
+
+  saveState();
+  renderChores();
+  showToast(added > 0 ? `Loaded ${added} chore${added > 1 ? 's' : ''}` : 'Already loaded — nothing new to add');
 }
 
 /* ============================================================
@@ -1016,6 +1193,11 @@ function init(){
   $('#pushBtn').addEventListener('click', pushToSheet);
   $('#pullBtn').addEventListener('click', ()=> pullFromSheet(false));
   $('#clearCheckedBtn').addEventListener('click', clearCheckedCartItems);
+  $('#addPersonBtn').addEventListener('click', addPerson);
+  $('#f_newPersonName').addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter') addPerson();
+  });
+  $('#loadStarterBtn').addEventListener('click', loadStarterChores);
 
   // Auto-pull only if local state is completely empty (new device scenario)
   if(state.chores.length === 0 && state.cartItems.length === 0 && getScriptUrl()){

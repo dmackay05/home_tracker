@@ -51,6 +51,10 @@
       </div>
     </div>
 
+    <div class="section-row">
+      <div class="filter-chips filter-chips-scroll" id="personFilters"></div>
+    </div>
+
     <ul class="chore-list" id="choreList"></ul>
 
     <div class="empty-state" id="choreEmpty" hidden>
@@ -110,6 +114,9 @@
         <button class="seg-btn" data-val="months">months</button>
       </div>
     </div>
+
+    <label class="field-label">Assigned to <span class="field-optional">optional</span></label>
+    <div class="person-grid" id="f_choreAssignee"></div>
 
     <label class="field-label">Notes <span class="field-optional">optional</span></label>
     <textarea class="field-input field-textarea" id="f_choreNotes" placeholder="Filter size, mower settings, anything you'd forget" maxlength="280"></textarea>
@@ -201,6 +208,23 @@
     <label class="field-label">USDA FoodData Central API key</label>
     <input type="text" class="field-input" id="f_usdaKey" placeholder="Paste your USDA API key">
     <p class="sync-status">Used to auto-match cart items to nutrition info. Get a free key at api.data.gov.</p>
+
+    <div class="settings-divider"></div>
+
+    <label class="field-label">People</label>
+    <div class="people-list" id="peopleList"></div>
+    <div class="add-person-row">
+      <input type="text" class="field-input" id="f_newPersonName" placeholder="Add a person…" maxlength="30">
+      <button class="btn-secondary add-person-btn" id="addPersonBtn">Add</button>
+    </div>
+
+    <div class="settings-divider"></div>
+
+    <label class="field-label">Starter chores</label>
+    <p class="sync-status">Load 15 common house &amp; yard chores to get started. Won't duplicate ones you already have.</p>
+    <div class="sheet-actions">
+      <button class="btn-secondary" id="loadStarterBtn">Load starter chores</button>
+    </div>
 
     <div class="settings-divider"></div>
 

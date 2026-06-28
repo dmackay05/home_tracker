@@ -34,7 +34,8 @@ function doPost(e){
       saveData({
         chores: payload.chores || [],
         cartItems: payload.cartItems || [],
-        categories: payload.categories || []
+        categories: payload.categories || [],
+        people: payload.people || []
       });
       return ContentService.createTextOutput(JSON.stringify({ ok:true }))
         .setMimeType(ContentService.MimeType.JSON);
@@ -60,16 +61,16 @@ function getDataSheet(){
 function loadData(){
   const sheet = getDataSheet();
   const lastRow = sheet.getLastRow();
-  if(lastRow === 0) return { chores: [], cartItems: [], categories: [] };
+  if(lastRow === 0) return { chores: [], cartItems: [], categories: [], people: [] };
 
   const values = sheet.getRange(1, 1, lastRow, 1).getValues();
   const jsonStr = values.map(r => r[0]).join('');
-  if(!jsonStr) return { chores: [], cartItems: [], categories: [] };
+  if(!jsonStr) return { chores: [], cartItems: [], categories: [], people: [] };
 
   try{
     return JSON.parse(jsonStr);
   }catch(e){
-    return { chores: [], cartItems: [], categories: [] };
+    return { chores: [], cartItems: [], categories: [], people: [] };
   }
 }
 
@@ -91,19 +92,22 @@ function saveData(data){
 
 function rebuildReadableTabs(data){
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const peopleById = {};
+  (data.people || []).forEach(p => { peopleById[p.id] = p.name; });
 
   // Chores tab
   let choreSheet = ss.getSheetByName('Chores');
   if(!choreSheet) choreSheet = ss.insertSheet('Chores');
   choreSheet.clear();
-  choreSheet.getRange(1,1,1,6).setValues([['Name','Area','Repeats (days)','Notes','Last Done','Current Streak']]);
+  choreSheet.getRange(1,1,1,7).setValues([['Name','Area','Repeats (days)','Assigned To','Notes','Last Done','Current Streak']]);
   const choreRows = (data.chores || []).map(c=>{
     const hist = c.history || [];
     const last = hist.length ? hist[hist.length-1] : '';
-    return [c.name, c.area, c.intervalDays, c.notes || '', last, computeStreak(c)];
+    const assignee = c.assigneeId ? (peopleById[c.assigneeId] || '') : '';
+    return [c.name, c.area, c.intervalDays, assignee, c.notes || '', last, computeStreak(c)];
   });
-  if(choreRows.length) choreSheet.getRange(2,1,choreRows.length,6).setValues(choreRows);
-  choreSheet.getRange(1,1,1,6).setFontWeight('bold');
+  if(choreRows.length) choreSheet.getRange(2,1,choreRows.length,7).setValues(choreRows);
+  choreSheet.getRange(1,1,1,7).setFontWeight('bold');
 
   // Cart tab
   let cartSheet = ss.getSheetByName('Cart');
@@ -122,6 +126,15 @@ function rebuildReadableTabs(data){
   });
   if(cartRows.length) cartSheet.getRange(2,1,cartRows.length,8).setValues(cartRows);
   cartSheet.getRange(1,1,1,8).setFontWeight('bold');
+
+  // People tab
+  let peopleSheet = ss.getSheetByName('People');
+  if(!peopleSheet) peopleSheet = ss.insertSheet('People');
+  peopleSheet.clear();
+  peopleSheet.getRange(1,1,1,2).setValues([['Name','Color']]);
+  const peopleRows = (data.people || []).map(p => [p.name, p.color]);
+  if(peopleRows.length) peopleSheet.getRange(2,1,peopleRows.length,2).setValues(peopleRows);
+  peopleSheet.getRange(1,1,1,2).setFontWeight('bold');
 }
 
 function computeStreak(chore){

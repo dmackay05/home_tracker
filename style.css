@@ -164,6 +164,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible{
 .section-row{ margin-bottom: 14px; }
 
 .filter-chips{ display:flex; gap:8px; }
+.filter-chips-scroll{ overflow-x:auto; flex-wrap:nowrap; padding-bottom:2px; -ms-overflow-style:none; scrollbar-width:none; }
+.filter-chips-scroll::-webkit-scrollbar{ display:none; }
 .chip{
   padding: 7px 14px;
   border-radius: 100px;
@@ -172,8 +174,19 @@ button:focus-visible, input:focus-visible, textarea:focus-visible{
   font-size: 13px;
   font-weight:500;
   transition: background 0.15s, color 0.15s;
+  flex-shrink:0;
+  white-space:nowrap;
 }
 .chip.active{ background: var(--rust); color: var(--moss-950); font-weight:600; }
+
+.person-chip{ display:flex; align-items:center; gap:6px; }
+.person-chip .person-dot{
+  width:7px; height:7px; border-radius:50%;
+  background: var(--person-color, var(--parchment-faint));
+  flex-shrink:0;
+}
+.person-chip.active{ background: var(--person-color, var(--rust)); color: var(--moss-950); }
+.person-chip.active .person-dot{ background: var(--moss-950); }
 
 /* ============================================================
    Chore list — signature streak-dot rows
@@ -203,6 +216,18 @@ button:focus-visible, input:focus-visible, textarea:focus-visible{
   letter-spacing: 0.06em;
   color: var(--parchment-faint);
   margin-top:2px;
+  display:flex;
+  align-items:center;
+  gap:0;
+}
+
+.person-badge{
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight:600;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--person-color, var(--parchment-dim));
 }
 
 .chore-due-badge{
@@ -435,6 +460,23 @@ button:focus-visible, input:focus-visible, textarea:focus-visible{
 .cat-chip.active{ background: var(--chip-color, var(--gold)); color: var(--moss-950); border-color: var(--chip-color, var(--gold)); font-weight:600; }
 .cat-custom-input{ margin-top:10px; }
 
+.person-grid{ display:flex; flex-wrap:wrap; gap:8px; }
+.person-chip-pick{
+  padding: 8px 14px;
+  border-radius:100px;
+  background: var(--moss-800);
+  border: 1px solid var(--moss-600);
+  color: var(--parchment-dim);
+  font-size:13px;
+  font-weight:500;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.person-chip-pick .person-dot{ width:7px; height:7px; border-radius:50%; background: var(--person-color, var(--parchment-faint)); flex-shrink:0; }
+.person-chip-pick.active{ background: var(--person-color, var(--gold)); color: var(--moss-950); border-color: var(--person-color, var(--gold)); font-weight:600; }
+.person-chip-pick.active .person-dot{ background: var(--moss-950); }
+
 .sheet-actions{ display:flex; gap:10px; margin-top:24px; }
 .sheet-actions-col{ flex-direction:column; }
 
@@ -455,6 +497,26 @@ button:focus-visible, input:focus-visible, textarea:focus-visible{
 .settings-divider{ height:1px; background: var(--moss-700); margin: 22px 0; }
 .sync-status{ font-size:12px; color: var(--parchment-faint); margin: 10px 0 0; line-height:1.5; }
 .sync-status .ts{ color: var(--sage); }
+
+/* ============================================================
+   People manager (Settings sheet)
+   ============================================================ */
+.people-list{ display:flex; flex-direction:column; gap:8px; }
+.person-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  background: var(--moss-800);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+.person-row .person-dot{ width:10px; height:10px; border-radius:50%; background: var(--person-color, var(--parchment-faint)); flex-shrink:0; }
+.person-row-name{ flex:1; font-size:14px; font-weight:500; color: var(--parchment); }
+.person-row-del{ font-size:14px; color: var(--parchment-faint); padding:4px 6px; }
+
+.add-person-row{ display:flex; gap:8px; margin-top:10px; }
+.add-person-row .field-input{ flex:1; }
+.add-person-btn{ flex:0 0 auto; padding: 12px 16px; }
 
 /* ============================================================
    USDA nutrition match (Cart add sheet)
