@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0D0D1A">
+<title>Ledger — House, Yard & Cart</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ledger">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ===== Header ===== -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">⌂</span>
+      <h1>Ledger</h1>
+    </div>
+    <button class="icon-btn" id="settingsBtn" aria-label="Settings">⚙</button>
+  </header>
+
+  <!-- ===== Tab switcher ===== -->
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-tab="yard" role="tab" aria-selected="true">
+      <span class="tab-label">Yard &amp; House</span>
+      <span class="tab-sub" id="yardDueCount"></span>
+    </button>
+    <button class="tab" data-tab="cart" role="tab" aria-selected="false">
+      <span class="tab-label">Cart</span>
+      <span class="tab-sub" id="cartCount"></span>
+    </button>
+  </nav>
+
+  <!-- ===== YARD & HOUSE PANEL ===== -->
+  <main class="panel active" id="panel-yard">
+
+    <div class="section-row">
+      <div class="filter-chips" id="yardFilters">
+        <button class="chip active" data-filter="all">All</button>
+        <button class="chip" data-filter="due">Due</button>
+        <button class="chip" data-filter="upcoming">Upcoming</button>
+      </div>
+    </div>
+
+    <ul class="chore-list" id="choreList"></ul>
+
+    <div class="empty-state" id="choreEmpty" hidden>
+      <p class="empty-glyph">⌂</p>
+      <p class="empty-title">Nothing logged yet</p>
+      <p class="empty-sub">Add a chore below — mowing, gutters, filters, whatever repeats.</p>
+    </div>
+
+  </main>
+
+  <!-- ===== CART PANEL ===== -->
+  <main class="panel" id="panel-cart">
+
+    <div class="section-row">
+      <div class="cart-progress" id="cartProgress" hidden>
+        <span id="cartProgressText"></span>
+        <div class="cart-progress-track"><div class="cart-progress-fill" id="cartProgressFill"></div></div>
+      </div>
+    </div>
+
+    <div class="cart-categories" id="cartCategories"></div>
+
+    <div class="empty-state" id="cartEmpty" hidden>
+      <p class="empty-glyph">⛃</p>
+      <p class="empty-title">Cart's empty</p>
+      <p class="empty-sub">Add something to pick up — it'll file itself by category.</p>
+    </div>
+
+  </main>
+
+  <!-- ===== FAB ===== -->
+  <button class="fab" id="fabBtn" aria-label="Add">+</button>
+
+</div>
+
+<!-- ===== Add/Edit Chore Sheet ===== -->
+<div class="sheet-overlay" id="choreOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 class="sheet-title" id="choreSheetTitle">New chore</h2>
+
+    <label class="field-label">Name</label>
+    <input type="text" class="field-input" id="f_choreName" placeholder="Mow the lawn" maxlength="60">
+
+    <label class="field-label">Area</label>
+    <div class="seg" id="f_choreArea">
+      <button class="seg-btn active" data-val="yard">Yard</button>
+      <button class="seg-btn" data-val="house">House</button>
+    </div>
+
+    <label class="field-label">Repeats every</label>
+    <div class="freq-row">
+      <input type="number" class="field-input freq-num" id="f_choreInterval" value="7" min="1" max="365">
+      <div class="seg" id="f_choreUnit">
+        <button class="seg-btn active" data-val="days">days</button>
+        <button class="seg-btn" data-val="weeks">weeks</button>
+        <button class="seg-btn" data-val="months">months</button>
+      </div>
+    </div>
+
+    <label class="field-label">Notes <span class="field-optional">optional</span></label>
+    <textarea class="field-input field-textarea" id="f_choreNotes" placeholder="Filter size, mower settings, anything you'd forget" maxlength="280"></textarea>
+
+    <div class="sheet-actions">
+      <button class="btn-danger" id="choreDeleteBtn" hidden>Delete</button>
+      <button class="btn-primary" id="choreSaveBtn">Save chore</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Chore Detail / Complete Sheet ===== -->
+<div class="sheet-overlay" id="choreDetailOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 class="sheet-title" id="detailChoreName"></h2>
+    <p class="detail-sub" id="detailChoreMeta"></p>
+
+    <div class="streak-block">
+      <div class="streak-row" id="detailStreakRow"></div>
+      <p class="streak-caption"><span id="detailStreakCount">0</span> in a row</p>
+    </div>
+
+    <p class="detail-notes" id="detailChoreNotes" hidden></p>
+
+    <div class="history-list" id="detailHistory"></div>
+
+    <div class="sheet-actions">
+      <button class="btn-secondary" id="detailEditBtn">Edit</button>
+      <button class="btn-primary" id="detailCompleteBtn">Mark done today</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Add Cart Item Sheet ===== -->
+<div class="sheet-overlay" id="cartOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 class="sheet-title">Add to cart</h2>
+
+    <label class="field-label">Item</label>
+    <input type="text" class="field-input" id="f_cartName" placeholder="Eggs" maxlength="60">
+
+    <label class="field-label">Quantity <span class="field-optional">optional</span></label>
+    <input type="text" class="field-input" id="f_cartQty" placeholder="2, 1 dozen, etc." maxlength="20">
+
+    <label class="field-label">Category</label>
+    <div class="cat-grid" id="f_cartCategory"></div>
+    <input type="text" class="field-input cat-custom-input" id="f_cartCategoryCustom" placeholder="New category…" hidden maxlength="30">
+
+    <label class="field-label">Nutrition <span class="field-optional">auto-matched, tap to change</span></label>
+    <div class="usda-match" id="usdaMatchBox">
+      <div class="usda-match-empty" id="usdaMatchEmpty">No match yet — type an item name above</div>
+      <div class="usda-match-loading" id="usdaMatchLoading" hidden>Searching USDA…</div>
+      <div class="usda-match-result" id="usdaMatchResult" hidden>
+        <div class="usda-match-info">
+          <div class="usda-match-name" id="usdaMatchName"></div>
+          <div class="usda-match-cals" id="usdaMatchCals"></div>
+        </div>
+        <button class="usda-match-change" id="usdaMatchChangeBtn">Change</button>
+      </div>
+      <div class="usda-match-none" id="usdaMatchNone" hidden>No USDA match found <button class="usda-match-change" id="usdaMatchSearchBtn">Search</button></div>
+    </div>
+
+    <div class="sheet-actions">
+      <button class="btn-primary" id="cartSaveBtn">Add item</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Settings Sheet ===== -->
+<div class="sheet-overlay" id="settingsOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 class="sheet-title">Settings</h2>
+
+    <label class="field-label">Apps Script URL</label>
+    <input type="text" class="field-input" id="f_scriptUrl" placeholder="https://script.google.com/macros/s/…/exec">
+
+    <p class="sync-status" id="syncStatusText">Not configured yet. Paste your Apps Script URL above.</p>
+
+    <div class="sheet-actions sheet-actions-col">
+      <button class="btn-secondary" id="pullBtn">Pull from sheet</button>
+      <button class="btn-primary" id="pushBtn">Push to sheet</button>
+    </div>
+
+    <div class="settings-divider"></div>
+
+    <label class="field-label">USDA FoodData Central API key</label>
+    <input type="text" class="field-input" id="f_usdaKey" placeholder="Paste your USDA API key">
+    <p class="sync-status">Used to auto-match cart items to nutrition info. Get a free key at api.data.gov.</p>
+
+    <div class="settings-divider"></div>
+
+    <label class="field-label">Clear completed cart items</label>
+    <div class="sheet-actions">
+      <button class="btn-danger" id="clearCheckedBtn">Clear checked items</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== USDA Search Sheet ===== -->
+<div class="sheet-overlay" id="usdaSearchOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 class="sheet-title">Find a match</h2>
+
+    <input type="text" class="field-input" id="f_usdaSearchInput" placeholder="Search USDA foods…">
+
+    <div class="usda-results" id="usdaResultsList"></div>
+    <div class="usda-results-empty" id="usdaResultsEmpty" hidden>No results. Try a simpler search term.</div>
+    <div class="usda-results-loading" id="usdaResultsLoading" hidden>Searching…</div>
+
+    <div class="sheet-actions">
+      <button class="btn-secondary" id="usdaSkipBtn">Skip — no nutrition data</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Nutrition Detail Sheet ===== -->
+<div class="sheet-overlay" id="nutritionDetailOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 class="sheet-title" id="nutritionItemName"></h2>
+    <p class="detail-sub" id="nutritionSourceName"></p>
+
+    <div class="nutrition-panel" id="nutritionPanel"></div>
+
+    <p class="nutrition-basis" id="nutritionBasis"></p>
+
+    <div class="sheet-actions">
+      <button class="btn-secondary" id="nutritionChangeBtn">Change match</button>
+      <button class="btn-danger" id="nutritionRemoveBtn">Remove match</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
